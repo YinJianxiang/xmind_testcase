@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+pydantic-settings
+python-dotenv
+langchain-openai
+langchain>=0.3
+langchain-mcp-adapters>=0.1
+pytest>=8

@@ -1,0 +1,14 @@
+/.env
+# 本地 MCP 配置（可对比根目录提交的 mcp.json.example 自行创建）
+/mcp.json
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
