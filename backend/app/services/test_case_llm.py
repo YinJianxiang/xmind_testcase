@@ -1,5 +1,6 @@
 """
-§6.5 / §6.6 / §6.7：结构化 invoke；prompt 命中 MCP 规则且 ``mcp.json`` 可用时走 Agent+MCP（对齐 TS ``invokeStructuredWithMcp`` / ``invokeJsonWithMcp``），否则直连 ``with_structured_output`` / ``model.ainvoke``。
+结构化 LLM invoke：prompt 命中 MCP 规则且 ``mcp.json`` 可用时走 Agent+MCP
+（对齐 TS ``invokeStructuredWithMcp`` / ``invokeJsonWithMcp``），否则直连 ``with_structured_output`` / ``model.ainvoke``。
 对齐 `testCaseAgent.ts` 中 `planTestCaseModules` / `generateTestCases` /
 `generateModuleTestCases` / `chatAndUpdateMindMap`。
 """
@@ -62,7 +63,7 @@ async def _ainvoke_prompt_structured(
     """
     对任意完整任务 prompt 走结构化：先 ``with_structured_output``，失败则 raw 正文 → ``extract_json_object``。
 
-    供直连与 MCP 二阶段收口复用（MCP 路径在 Agent 取证后传入合并后的 prompt）。
+    供直连与 MCP 结构化收口复用（MCP lane 先在 Agent 中取证，再并入合并 prompt）。
     """
     chain = _structured_runnable(model, schema_cls, schema_constant)
     try:
@@ -200,7 +201,7 @@ async def plan_modules_without_skeleton(
     llm: BaseChatModel | None = None,
 ) -> dict[str, Any]:
     """
-    Plan Phase2-ish：结构化输出模块列表并可复用 prefetch（与 MCP 二阶段对齐）。
+    结构化产出模块列表，可附带 prefetch（与 invoke_structured_with_mcp 的合并逻辑一致）。
     不含 ``mindMap``。
     """
     model = llm or create_chat_model()
@@ -257,7 +258,7 @@ async def generate_test_cases(
         list(mcp_servers.keys()) if mcp_servers else [],
     )
     logger.info(
-        "generate_test_cases: 步骤=invoke_structured 开始 schema=%s (内部可按 MCP 两阶段)",
+        "generate_test_cases: 步骤=invoke_structured 开始 schema=%s (内部可走 MCP phase1→phase2)",
         GENERATION_SCHEMA_NAME,
     )
     parsed, _ = await invoke_structured_with_mcp(

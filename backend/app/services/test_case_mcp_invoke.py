@@ -64,13 +64,13 @@ def _feishu_mcp_tool_error_middleware() -> Any:
     return _feishu_mcp_route_tool_errors_to_model
 
 
-# MCP 取值阶段摘要过长时对二阶段上下文截断（避免撑爆上下文）
+# MCP phase1 取证摘要过长时对 phase2 结构化上下文截断（避免撑爆上下文）
 _DEFAULT_MCP_BRIEF_MAX_CHARS = 60_000
 
 
 def sanitize_mcp_document_brief_text(text: str) -> str:
     """
-    去掉 MCP / 飞书文档拉取结果里常见的**纯图像占位**（无实质需求文字），减轻对第二阶段生成的干扰。
+    去掉 MCP / 飞书文档拉取结果里常见的**纯图像占位**（无实质需求文字），减轻对后续结构化生成的干扰。
 
     不删除正文中含「图片」字样的完整句子，仅删独立占位行与 markdown / HTML 图标签。
     """
@@ -140,10 +140,10 @@ def _agent_reply_text(result: Any) -> str:
     return ""
 
 
-# 与 merge 中占位摘要句首一致，用于判断第二阶段是否启用强文档锚定
+# 与 merge 中占位摘要句首一致，用于判断是否启用 MCP phase2 强文档锚定块
 _MCP_PLACEHOLDER_BRIEF_PREFIX = "（本次未通过 MCP"
 
-_MCP_PHASE2_STRONG_DOC_ANCHOR = """## 文档锚定（第二阶段硬性约束，优先于下文「多产/全覆盖」等笼统表述）
+_MCP_PHASE2_STRONG_DOC_ANCHOR = """## 文档锚定（结构化产出硬性约束，优先于下文「多产/全覆盖」等笼统表述）
 
 1. **事实来源**：紧挨上文的「MCP 查证摘要」是需求事实的首要来源；模块拆分、用例的 topic、steps、expected 中的业务对象、状态、规则、数字阈值、渠道/平台名等，须能在摘要中找到依据或忠实转述。
 2. **禁止编造**：不得引入摘要未提及的功能、接口字段、枚举、回调、权限模型；禁止为用例数量达标而堆叠与文档无关的「通用模板」场景。
@@ -163,8 +163,8 @@ def merge_mcp_research_into_task_prompt(
     max_brief_chars: int = _DEFAULT_MCP_BRIEF_MAX_CHARS,
 ) -> str:
     """
-    MCP 第一阶段仅产出自然语言摘要；与用户原始任务拼接后，
-    由第二阶段 ``with_structured_output`` 生成合法 JSON Schema 对象。
+    MCP phase1 仅产出自然语言取证摘要；与用户原始任务拼接后，
+    由 phase2 ``with_structured_output`` 生成合法 JSON Schema 对象。
     """
     brief = sanitize_mcp_document_brief_text((mcp_research_text or "").strip())
     if not brief:
@@ -188,7 +188,7 @@ def merge_mcp_research_into_task_prompt(
     )
 
 
-# 第一阶段：只取证，禁止输出 JSON（避免 Agent 乱序/未转义引号导致解析失败）。
+# MCP phase1（取证）：只取证，禁止输出 JSON（避免 Agent 乱序/未转义引号导致解析失败）。
 MCP_STRUCTURED_PHASE1_SYSTEM_PROMPT = (
     "你是文档与需求取证助手，须**尽最大可能**调用 MCP 工具读取用户消息中的飞书/钉钉/知识库/wiki 正文；"
     "在存在可识别协议链接或文档 token 时，**禁止**在未实际调用读文档类工具前假装已阅读原文。\n"
@@ -326,8 +326,8 @@ async def invoke_structured_with_mcp(
     """
     返回 (结构化结果, phase1_natural_language_research)。
 
-    - 若本次完整跑通 MCP phase1，则第二项为 Agent 取证正文，可供后续 /module 复用；
-    - 若使用 ``prefetched_research`` 或未走 MCP，则第二项为 ``None``。
+    - 若本次完整跑通 MCP phase1，返回元组的第二元素为 Agent 取证正文，可供后续 /module 复用；
+    - 若使用 ``prefetched_research`` 或未走 MCP，第二元素为 ``None``。
     """
     prefetch = (prefetched_research or "").strip()
     if prefetch:
@@ -373,7 +373,7 @@ async def invoke_structured_with_mcp(
         validated = await _ainvoke_prompt_structured(model, merged, schema_cls, schema_constant)
         t3 = time.perf_counter()
         logger.info(
-            "structured[%s]: MCP phase2 结束 elapsed_ms=%s MCP两阶段全流程成功",
+            "structured[%s]: MCP phase2 结束 elapsed_ms=%s MCP取证+结构化全流程成功",
             schema_constant,
             int((t3 - t2) * 1000),
         )
@@ -436,10 +436,10 @@ async def invoke_json_with_mcp(model: BaseChatModel, prompt: str) -> dict[str, A
         )
         return await _fallback_chat_json(model, prompt)
 
-    logger.info(
-        "chat_json: MCP决策=是两阶段 mode=research_then_json_schema servers=%s",
-        list(connections.keys()),
-    )
+        logger.info(
+            "chat_json: MCP路径=research_then_json_schema servers=%s",
+            list(connections.keys()),
+        )
 
     try:
         from langchain.agents import create_agent
@@ -505,12 +505,14 @@ async def invoke_json_with_mcp(model: BaseChatModel, prompt: str) -> dict[str, A
         )
         t3 = time.perf_counter()
         logger.info(
-            "chat_json: MCP phase2 结束 elapsed_ms=%s MCP两阶段全流程成功 total_elapsed_ms=%s",
+            "chat_json: MCP phase2 结束 elapsed_ms=%s MCP取证+结构化全流程成功 total_elapsed_ms=%s",
             int((t3 - t2) * 1000),
             int((t3 - t0) * 1000),
         )
         if (research or "").strip():
-            logger.info("chat_json: MCP读需求文档 成功 两阶段已完成且 phase1 有取证摘要")
+            logger.info(
+                "chat_json: MCP读需求文档 成功 取证与结构化收口已完成且 phase1 有取证摘要"
+            )
         mind_dict = parsed.mindMap.model_dump(mode="python")
         mind_norm = tca.normalize_parsed_mind_map(mind_dict)
         return {

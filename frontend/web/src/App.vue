@@ -112,7 +112,7 @@ async function toggleFullscreen() {
               {{
                 mindMapStats.caseCount > 0
                   ? `${mindMapStats.categories} 个类别，${mindMapStats.preconditions} 组前置条件，${mindMapStats.caseCount} 条用例`
-                  : '输入需求后生成第一版脑图'
+                  : '输入需求后可生成初始脑图'
               }}
             </p>
           </div>

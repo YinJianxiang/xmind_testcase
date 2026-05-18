@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
           <div class="flex flex-col gap-3">
             <template v-if="messages.length === 0">
               <div class="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500">
-                先输入需求并发送，AI 会生成第一版测试用例脑图；生成后可以继续通过对话局部修改。
+                先输入需求并发送，AI 会生成初始测试用例脑图；生成后可以继续通过对话局部修改。
               </div>
             </template>
             <template v-else>

@@ -1,4 +1,4 @@
-"""§6.2：常量、prompt 拼装、serialize_messages、结构化 Pydantic。"""
+"""常量、prompt 拼装、serialize_messages、结构化 Pydantic。"""
 
 import pytest
 

@@ -1,4 +1,4 @@
-"""§6.3 create_chat_model / gpt-5 temperature 规则。"""
+"""create_chat_model 与 GPT-5 temperature 约束。"""
 
 from __future__ import annotations
 

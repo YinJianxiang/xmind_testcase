@@ -1,4 +1,4 @@
-"""merge_mcp_research_into_task_prompt（MCP 二阶段拼接）单测。"""
+"""merge_mcp_research_into_task_prompt（MCP 取证与 prompt 合并）单测。"""
 
 from __future__ import annotations
 

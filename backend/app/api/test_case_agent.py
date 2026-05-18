@@ -1,6 +1,6 @@
 """
-§7 REST：`/api/test-case-agent/*`。
-错误信息与 HTTP 状态码对齐 Next `route.ts` / 附录 A。
+测试用例 Agent 相关 REST：`/api/test-case-agent/*`。
+错误信息与 HTTP 状态码对齐 Next 侧 `route.ts` 约定。
 """
 
 from __future__ import annotations

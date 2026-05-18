@@ -1,7 +1,7 @@
 """
 纯函数与脑图构建：对齐 next-ai-test-cases `src/lib/agent/testCaseAgent.ts`（约 38–418 行）。
-§6.2：模型提示词常量与同 TS 字面一致的 `build_*_prompt` / `serialize_messages`。
-不含 LLM / 路由。节点为与 JSON 同形的 dict。
+含与 TS 字面一致的模型提示常量、`build_*_prompt` / `serialize_messages`。
+不含 LLM / 路由；节点为与 JSON 同形的 dict。
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ Priority = Literal["P0", "P1", "P2", "P3"]
 
 PRECONDITION_TAG = "前置"
 
-# --- 与 `testCaseAgent.ts` 87–111 行字面一致（§6.2）---
+# --- `TEST_CASE_*` 常量与 TS `testCaseAgent.ts` 87–111 行字面一致 ---
 
 TEST_CASE_GENERATION_GUIDE = """生成测试用例时必须遵守：
 1. 先在内部识别一级功能模块骨架，再逐个模块补充完整场景，最后做一次质量审查；最终只输出完整 JSON。

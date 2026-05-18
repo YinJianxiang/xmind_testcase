@@ -1,4 +1,4 @@
-"""§6.4 extract_json_object / extract_text_* 与 TS 对齐。"""
+"""extract_json_object / extract_text_* 与 TS 实现对齐的单测。"""
 
 from app.services import llm_response_extract as ex
 
