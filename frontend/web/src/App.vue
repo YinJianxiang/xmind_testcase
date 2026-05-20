@@ -107,8 +107,10 @@ async function toggleFullscreen() {
       <header class="shrink-0 border-b border-slate-200 px-3 py-2.5">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="min-w-0">
-            <h1 class="text-base font-semibold text-slate-900">测试用例脑图</h1>
-            <p class="mt-1 text-sm text-slate-600">
+            <h1 class="text-[15px] font-semibold leading-snug tracking-tight text-slate-900 sm:text-base">
+              测试用例脑图
+            </h1>
+            <p class="mt-0.5 text-xs leading-relaxed text-slate-500 sm:text-[13px]">
               {{
                 mindMapStats.caseCount > 0
                   ? `${mindMapStats.categories} 个类别，${mindMapStats.preconditions} 组前置条件，${mindMapStats.caseCount} 条用例`
@@ -236,26 +238,29 @@ async function toggleFullscreen() {
 
       </header>
 
-      <div class="min-h-0 min-w-0 flex-1 p-0">
-        <MindMapView
-          ref="mindMapRef"
-          :data="mindMap"
-          @update:data="handleMindMapUpdate"
-          @scale-change="scalePercent = $event"
+      <!-- 大屏：左侧脑图 ~72%，右侧 AI 栏 ~28%；小屏纵向堆叠 -->
+      <div class="flex min-h-0 flex-1 flex-col lg:flex-row lg:overflow-hidden">
+        <div class="relative min-h-[min(52vh,560px)] min-w-0 flex-1 bg-slate-50 lg:min-h-0 lg:flex-[1_1_72%]">
+          <MindMapView
+            ref="mindMapRef"
+            :data="mindMap"
+            @update:data="handleMindMapUpdate"
+            @scale-change="scalePercent = $event"
+          />
+        </div>
+        <ChatBubblePanel
+          v-model:input="input"
+          variant="sidebar"
+          :messages="messages"
+          :loading-chat="loadingChat"
+          :loading-message="loadingMessage"
+          :error="error"
+          :has-cases="hasCases"
+          :is-initial-state="isInitialState"
+          @send="sendMessage"
+          @append-template="appendTemplate"
         />
       </div>
-
-      <ChatBubblePanel
-        v-model:input="input"
-        :messages="messages"
-        :loading-chat="loadingChat"
-        :loading-message="loadingMessage"
-        :error="error"
-        :has-cases="hasCases"
-        :is-initial-state="isInitialState"
-        @send="sendMessage"
-        @append-template="appendTemplate"
-      />
     </div>
   </main>
 </template>

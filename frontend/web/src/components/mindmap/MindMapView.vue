@@ -3,9 +3,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { MindMapNode } from '@/types/agent'
 import { EMPTY_MAP } from '@/lib/mindmap-client'
 import {
+  type ContextMenuState,
   type MindMapConstructor,
   type MindMapInstance,
   type MindMapNodeLike,
+  type MindMapRendererNode,
   type MindMapTagItem,
   type Priority,
   type PriorityEditorState,
@@ -35,6 +37,8 @@ const instanceRef = ref<MindMapInstance | null>(null)
 
 const renderError = ref<string | null>(null)
 const priorityEditor = ref<PriorityEditorState | null>(null)
+const contextMenu = ref<ContextMenuState | null>(null)
+const contextMenuRef = ref<HTMLDivElement | null>(null)
 
 const priorityChoices = ['P0', 'P1', 'P2', 'P3'] as const
 
@@ -156,7 +160,44 @@ function handleNodeTreeRenderEnd() {
   scheduleFit(true)
 }
 
+function hideContextMenu() {
+  contextMenu.value = null
+}
+
+function showContextMenuAt(clientX: number, clientY: number, node: MindMapRendererNode) {
+  const wrapperEl = containerRef.value?.parentElement
+  if (!wrapperEl) return
+
+  const wrapperRect = wrapperEl.getBoundingClientRect()
+  const menuWidth = 168
+  const menuHeight = 72
+  const canDelete = !node.isRoot && !node.isGeneralization
+
+  contextMenu.value = {
+    x: Math.max(8, Math.min(clientX - wrapperRect.left, wrapperRect.width - menuWidth - 8)),
+    y: Math.max(8, Math.min(clientY - wrapperRect.top, wrapperRect.height - menuHeight - 8)),
+    canDelete,
+    node,
+  }
+}
+
+function handleNodeContextmenu(e: MouseEvent, node: MindMapRendererNode) {
+  e.preventDefault()
+  priorityEditor.value = null
+  showContextMenuAt(e.clientX, e.clientY, node)
+}
+
+function deleteContextNode(removeCurrentOnly: boolean) {
+  const menu = contextMenu.value
+  if (!menu?.canDelete || !instanceRef.value) return
+
+  hideContextMenu()
+  const command = removeCurrentOnly ? 'REMOVE_CURRENT_NODE' : 'REMOVE_NODE'
+  instanceRef.value.execCommand?.(command, [menu.node])
+}
+
 function handleNodeTagClick(node: MindMapNodeLike, item: MindMapTagItem) {
+  hideContextMenu()
   const priority = normalizePriority(tagText(item))
   if (!priority) return
 
@@ -240,11 +281,16 @@ async function initMindMap(retryCount = 0) {
     instanceRef.value.on?.('scale', handleScale)
     instanceRef.value.on?.('node_tree_render_end', handleNodeTreeRenderEnd)
     instanceRef.value.on?.('node_tag_click', handleNodeTagClick)
+    instanceRef.value.on?.('node_contextmenu', handleNodeContextmenu)
+    instanceRef.value.on?.('node_click', hideContextMenu)
+    instanceRef.value.on?.('draw_click', hideContextMenu)
     instanceRef.value.__handlers = {
       handleDataChange,
       handleScale,
       handleNodeTreeRenderEnd,
       handleNodeTagClick,
+      handleNodeContextmenu,
+      handleHideContextMenu: hideContextMenu,
     }
 
     syncScale()
@@ -265,9 +311,17 @@ watch(
   { deep: true },
 )
 
+function handleDocumentPointerDown(e: PointerEvent) {
+  if (!contextMenu.value) return
+  const menuEl = contextMenuRef.value
+  if (menuEl?.contains(e.target as Node)) return
+  hideContextMenu()
+}
+
 onMounted(() => {
   mounted = true
   void initMindMap()
+  document.addEventListener('pointerdown', handleDocumentPointerDown)
 
   nextTick(() => {
     const container = containerRef.value
@@ -289,6 +343,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   mounted = false
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
   if (changeTimer) clearTimeout(changeTimer)
   if (retryTimer) clearTimeout(retryTimer)
   fitTimers.forEach((t) => clearTimeout(t))
@@ -307,6 +362,9 @@ onBeforeUnmount(() => {
       instance.off?.('scale', handlers.handleScale)
       instance.off?.('node_tree_render_end', handlers.handleNodeTreeRenderEnd)
       instance.off?.('node_tag_click', handlers.handleNodeTagClick)
+      instance.off?.('node_contextmenu', handlers.handleNodeContextmenu)
+      instance.off?.('node_click', handlers.handleHideContextMenu)
+      instance.off?.('draw_click', handlers.handleHideContextMenu)
     }
     instance.destroy?.()
     instanceRef.value = null
@@ -364,6 +422,37 @@ defineExpose({
     <p v-if="renderError" class="absolute left-3 top-3 z-10 text-xs text-red-600">
       {{ renderError }}
     </p>
+    <div
+      v-if="contextMenu"
+      ref="contextMenuRef"
+      class="absolute z-30 min-w-[168px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+      :style="{
+        left: `${contextMenu.x}px`,
+        top: `${contextMenu.y}px`,
+      }"
+      @contextmenu.prevent
+    >
+      <button
+        type="button"
+        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+        :disabled="!contextMenu.canDelete"
+        :title="contextMenu.canDelete ? '删除节点及其子节点' : '根节点不可删除'"
+        @click="deleteContextNode(false)"
+      >
+        <span>删除节点</span>
+        <span class="text-xs text-slate-400">Del</span>
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+        :disabled="!contextMenu.canDelete"
+        :title="contextMenu.canDelete ? '仅删除当前节点，子节点保留' : '根节点不可删除'"
+        @click="deleteContextNode(true)"
+      >
+        <span>仅删除当前节点</span>
+        <span class="text-xs text-slate-400">Shift+Del</span>
+      </button>
+    </div>
     <div
       v-if="priorityEditor"
       class="absolute z-20 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"

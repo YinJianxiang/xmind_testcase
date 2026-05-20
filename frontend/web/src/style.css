@@ -81,31 +81,16 @@ body {
   margin: 0;
 }
 
+/* 不对全站 h1/h2 施加展示样式（会与 Tailwind 工具类冲突）；页面标题请在组件内用 class 控制 */
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+h2,
+h3 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
 p {
   margin: 0;
 }

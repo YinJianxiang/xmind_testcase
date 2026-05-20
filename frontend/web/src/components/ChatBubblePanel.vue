@@ -21,19 +21,20 @@ import {
 } from '@/lib/chat-bubble-constants'
 
 const _panelRef = inject<Ref<HTMLElement | null> | undefined>('editorPanelRef')
-if (_panelRef == null) {
-  throw new Error('ChatBubblePanel: inject editorPanelRef from App')
-}
-const editorPanelRef: Ref<HTMLElement | null> = _panelRef
 
-const props = defineProps<{
-  messages: ChatMessage[]
-  loadingChat: boolean
-  loadingMessage: string
-  error: string | null
-  hasCases: boolean
-  isInitialState: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    messages: ChatMessage[]
+    loadingChat: boolean
+    loadingMessage: string
+    error: string | null
+    hasCases: boolean
+    isInitialState: boolean
+    /** floating：可拖动气泡；sidebar：右侧固定栏（约 28% 宽） */
+    variant?: 'floating' | 'sidebar'
+  }>(),
+  { variant: 'sidebar' },
+)
 
 const input = defineModel<string>('input', { required: true })
 
@@ -60,6 +61,13 @@ type DragState = {
 
 let dragState: DragState | null = null
 let resizeObserver: ResizeObserver | null = null
+
+const isFloating = computed(() => props.variant === 'floating')
+
+if (isFloating.value && _panelRef == null) {
+  throw new Error('ChatBubblePanel (floating): inject editorPanelRef from App')
+}
+const editorPanelRef: Ref<HTMLElement | null> = _panelRef ?? ref(null)
 
 function getBubbleDimensions(open: boolean) {
   const container = editorPanelRef.value
@@ -187,6 +195,7 @@ function handleInputKeyDown(event: KeyboardEvent) {
 const bubbleDimensions = ref(getBubbleDimensions(isChatOpen.value))
 
 watch(isChatOpen, () => {
+  if (!isFloating.value) return
   bubbleDimensions.value = getBubbleDimensions(isChatOpen.value)
   if (!hasPlacedBubble.value) return
   const { width, height } = getBubbleDimensions(isChatOpen.value)
@@ -195,6 +204,7 @@ watch(isChatOpen, () => {
 })
 
 function syncBubbleOnResize() {
+  if (!isFloating.value) return
   const { width, height } = getBubbleDimensions(isChatOpen.value)
 
   if (!hasPlacedBubble.value) {
@@ -211,6 +221,7 @@ function syncBubbleOnResize() {
 watch(
   () => editorPanelRef.value,
   (el) => {
+    if (!isFloating.value) return
     resizeObserver?.disconnect()
     resizeObserver = null
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -239,23 +250,22 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   stopDraggingBubble()
 })
-
 </script>
 
 <template>
-  <template v-if="isChatOpen">
-    <div
-      class="absolute z-30 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur"
-      :style="{
-        left: `${chatBubblePosition.x}px`,
-        top: `${chatBubblePosition.y}px`,
-        width: `${bubbleDimensions.width}px`,
-        height: `${bubbleDimensions.height}px`,
-      }"
-    >
+  <!-- 右侧停靠栏（大屏 ~28%），与左侧脑图 ~72% 分行 -->
+  <aside
+    v-if="variant === 'sidebar'"
+    class="flex min-h-0 w-full shrink-0 flex-col border-t border-slate-200 bg-white shadow-[-8px_0_24px_-12px_rgba(15,23,42,0.12)] max-lg:max-h-[min(42vh,520px)] lg:h-full lg:border-l lg:border-t-0"
+    :class="
+      isChatOpen
+        ? 'lg:w-[28%] lg:min-w-[260px] lg:max-w-[420px]'
+        : 'lg:w-12 lg:min-w-0 lg:max-w-none'
+    "
+  >
+    <template v-if="isChatOpen">
       <div
-        class="flex cursor-move select-none items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/95 px-3 py-2.5"
-        @mousedown="startDraggingBubble"
+        class="flex shrink-0 select-none items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5"
       >
         <div class="flex min-w-0 items-center gap-2">
           <MessageSquare class="h-4 w-4 shrink-0 text-slate-700" />
@@ -268,7 +278,6 @@ onBeforeUnmount(() => {
           type="button"
           class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
           title="收起对话"
-          @mousedown.stop
           @click="isChatOpen = false"
         >
           <X class="h-4 w-4" />
@@ -279,7 +288,9 @@ onBeforeUnmount(() => {
         <div class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 px-3 py-3">
           <div class="flex flex-col gap-3">
             <template v-if="messages.length === 0">
-              <div class="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500">
+              <div
+                class="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500"
+              >
                 先输入需求并发送，AI 会生成初始测试用例脑图；生成后可以继续通过对话局部修改。
               </div>
             </template>
@@ -293,8 +304,8 @@ onBeforeUnmount(() => {
                 <div
                   :class="
                     msg.role === 'user'
-                      ? 'max-w-[88%] rounded-lg rounded-br-sm bg-blue-600 px-3 py-2 text-white shadow-sm'
-                      : 'max-w-[88%] rounded-lg rounded-bl-sm border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-sm'
+                      ? 'max-w-[92%] rounded-lg rounded-br-sm bg-blue-600 px-3 py-2 text-white shadow-sm'
+                      : 'max-w-[92%] rounded-lg rounded-bl-sm border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-sm'
                   "
                 >
                   <p
@@ -310,7 +321,7 @@ onBeforeUnmount(() => {
             </template>
             <div v-if="loadingChat" class="flex justify-start">
               <div
-                class="max-w-[88%] rounded-lg rounded-bl-sm border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm"
+                class="max-w-[92%] rounded-lg rounded-bl-sm border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm"
               >
                 <Loader2 class="mr-2 inline h-4 w-4 animate-spin" />
                 {{
@@ -323,10 +334,10 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="min-w-0 border-t border-slate-200 bg-white p-2.5">
+        <div class="min-w-0 shrink-0 border-t border-slate-200 bg-white p-2.5">
           <textarea
             v-model="input"
-            class="min-h-[88px] w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+            class="min-h-[88px] w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20"
             :placeholder="
               isInitialState
                 ? '输入需求内容，按 Enter 发送；Shift+Enter 换行'
@@ -335,13 +346,13 @@ onBeforeUnmount(() => {
             @keydown="handleInputKeyDown"
           />
           <p v-if="error" class="mt-2 text-xs text-red-600">{{ error }}</p>
-          <div class="mt-2 flex items-center gap-2">
+          <div class="mt-2 flex flex-wrap items-center gap-2">
             <div class="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1">
               <button
                 v-for="item in REQUIREMENT_TEMPLATES"
                 :key="item.label"
                 type="button"
-                class="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                class="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100"
                 @click="emit('append-template', item.content)"
               >
                 {{ item.label }}
@@ -349,7 +360,7 @@ onBeforeUnmount(() => {
             </div>
             <button
               type="button"
-              class="inline-flex h-9 shrink-0 items-center rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+              class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
               :disabled="!canSend"
               @click="emit('send')"
             >
@@ -360,17 +371,156 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+    </template>
+
+    <div
+      v-else
+      class="flex flex-1 flex-col items-center gap-3 border-t border-slate-200 bg-slate-50 py-3 lg:border-t-0 lg:py-6"
+    >
+      <button
+        type="button"
+        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-md hover:bg-slate-800"
+        title="展开 AI 对话"
+        @click="isChatOpen = true"
+      >
+        <MessageSquare class="h-5 w-5" />
+      </button>
     </div>
+  </aside>
+
+  <!-- 可拖动悬浮气泡（备用） -->
+  <template v-else>
+    <template v-if="isChatOpen">
+      <div
+        class="absolute z-30 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur"
+        :style="{
+          left: `${chatBubblePosition.x}px`,
+          top: `${chatBubblePosition.y}px`,
+          width: `${bubbleDimensions.width}px`,
+          height: `${bubbleDimensions.height}px`,
+        }"
+      >
+        <div
+          class="flex cursor-move select-none items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/95 px-3 py-2.5"
+          @mousedown="startDraggingBubble"
+        >
+          <div class="flex min-w-0 items-center gap-2">
+            <MessageSquare class="h-4 w-4 shrink-0 text-slate-700" />
+            <span class="truncate text-sm font-semibold text-slate-900">AI 对话</span>
+            <span class="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
+              {{ loadingChat ? '处理中' : hasCases ? '可编辑' : '待生成' }}
+            </span>
+          </div>
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
+            title="收起对话"
+            @mousedown.stop
+            @click="isChatOpen = false"
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 px-3 py-3">
+            <div class="flex flex-col gap-3">
+              <template v-if="messages.length === 0">
+                <div
+                  class="rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500"
+                >
+                  先输入需求并发送，AI 会生成初始测试用例脑图；生成后可以继续通过对话局部修改。
+                </div>
+              </template>
+              <template v-else>
+                <div
+                  v-for="(msg, idx) in messages"
+                  :key="`${msg.role}-${idx}`"
+                  class="flex min-w-0"
+                  :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+                >
+                  <div
+                    :class="
+                      msg.role === 'user'
+                        ? 'max-w-[88%] rounded-lg rounded-br-sm bg-blue-600 px-3 py-2 text-white shadow-sm'
+                        : 'max-w-[88%] rounded-lg rounded-bl-sm border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-sm'
+                    "
+                  >
+                    <p
+                      :class="
+                        msg.role === 'user' ? 'mb-1 text-[11px] text-blue-100' : 'mb-1 text-[11px] text-slate-500'
+                      "
+                    >
+                      {{ msg.role === 'user' ? '你' : 'AI' }}
+                    </p>
+                    <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ msg.content }}</p>
+                  </div>
+                </div>
+              </template>
+              <div v-if="loadingChat" class="flex justify-start">
+                <div
+                  class="max-w-[88%] rounded-lg rounded-bl-sm border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm"
+                >
+                  <Loader2 class="mr-2 inline h-4 w-4 animate-spin" />
+                  {{
+                    loadingMessage ||
+                    (isInitialState ? '正在分析需求、生成测试用例...' : '正在按你的指令更新脑图...')
+                  }}
+                </div>
+              </div>
+              <div ref="messagesEndRef" />
+            </div>
+          </div>
+
+          <div class="min-w-0 border-t border-slate-200 bg-white p-2.5">
+            <textarea
+              v-model="input"
+              class="min-h-[88px] w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+              :placeholder="
+                isInitialState
+                  ? '输入需求内容，按 Enter 发送；Shift+Enter 换行'
+                  : '输入修改指令，例如：删除某分支，新增 3 条边界用例'
+              "
+              @keydown="handleInputKeyDown"
+            />
+            <p v-if="error" class="mt-2 text-xs text-red-600">{{ error }}</p>
+            <div class="mt-2 flex items-center gap-2">
+              <div class="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1">
+                <button
+                  v-for="item in REQUIREMENT_TEMPLATES"
+                  :key="item.label"
+                  type="button"
+                  class="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  @click="emit('append-template', item.content)"
+                >
+                  {{ item.label }}
+                </button>
+              </div>
+              <button
+                type="button"
+                class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                :disabled="!canSend"
+                @click="emit('send')"
+              >
+                <Loader2 v-if="loadingChat" class="mr-2 h-4 w-4 animate-spin" />
+                <Send v-else class="mr-2 h-4 w-4" />
+                发送
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+    <button
+      v-else
+      type="button"
+      class="absolute z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-900/10 bg-slate-900 text-white shadow-2xl hover:bg-slate-800"
+      :style="{ left: `${chatBubblePosition.x}px`, top: `${chatBubblePosition.y}px` }"
+      title="展开 AI 对话"
+      @mousedown="startDraggingBubble"
+      @click="handleBubbleTriggerClick"
+    >
+      <MessageSquare class="h-5 w-5" />
+    </button>
   </template>
-  <button
-    v-else
-    type="button"
-    class="absolute z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-900/10 bg-slate-900 text-white shadow-2xl hover:bg-slate-800"
-    :style="{ left: `${chatBubblePosition.x}px`, top: `${chatBubblePosition.y}px` }"
-    title="展开 AI 对话"
-    @mousedown="startDraggingBubble"
-    @click="handleBubbleTriggerClick"
-  >
-    <MessageSquare class="h-5 w-5" />
-  </button>
 </template>

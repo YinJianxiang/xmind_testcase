@@ -93,8 +93,7 @@ def _log_lark_stdio_effective_credentials(server_name: str, entry: dict[str, Any
 
 _SHOULD_USE_MCP_URL = re.compile(r"https?://", re.IGNORECASE)
 _SHOULD_USE_MCP_KW = re.compile(
-    r"(confluence|kaptain|jira|wiki|需求链接|需求地址|文档地址|页面链接"
-    r"|cf\.qunhequnhe\.com|kaptain\.qunhequnhe\.com"
+    r"(confluence|jira|wiki|需求链接|需求地址|文档地址|页面链接"
     r"|alidocs\.dingtalk\.com|钉钉文档"
     r"|feishu\.cn|larksuite\.com|飞书文档|飞书链接|飞书知识库|知识库|飞书)",
     re.IGNORECASE,

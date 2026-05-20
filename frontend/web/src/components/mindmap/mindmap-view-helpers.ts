@@ -41,11 +41,26 @@ export type MindMapNodeLike = {
   }
 }
 
+/** simple-mind-map 渲染节点实例（删除等命令需传入） */
+export type MindMapRendererNode = MindMapNodeLike & {
+  isRoot?: boolean
+  isGeneralization?: boolean
+}
+
+export type ContextMenuState = {
+  x: number
+  y: number
+  canDelete: boolean
+  node: MindMapRendererNode
+}
+
 export type MindMapEventHandlers = {
   handleDataChange: () => void
   handleScale: (scale: number) => void
   handleNodeTreeRenderEnd: () => void
   handleNodeTagClick: (node: MindMapNodeLike, item: MindMapTagItem) => void
+  handleNodeContextmenu: (e: MouseEvent, node: MindMapRendererNode) => void
+  handleHideContextMenu: () => void
 }
 
 export type MindMapInstance = {
@@ -62,11 +77,15 @@ export type MindMapInstance = {
   on?: {
     (eventName: 'scale', handler: (scale: number) => void): void
     (eventName: 'node_tag_click', handler: (node: MindMapNodeLike, item: MindMapTagItem) => void): void
+    (eventName: 'node_contextmenu', handler: (e: MouseEvent, node: MindMapRendererNode) => void): void
+    (eventName: 'node_click' | 'draw_click', handler: () => void): void
     (eventName: string, handler: (...args: unknown[]) => void): void
   }
   off?: {
     (eventName: 'scale', handler: (scale: number) => void): void
     (eventName: 'node_tag_click', handler: (node: MindMapNodeLike, item: MindMapTagItem) => void): void
+    (eventName: 'node_contextmenu', handler: (e: MouseEvent, node: MindMapRendererNode) => void): void
+    (eventName: 'node_click' | 'draw_click', handler: () => void): void
     (eventName: string, handler?: (...args: unknown[]) => void): void
   }
   destroy?: () => void

@@ -11,6 +11,65 @@
 | `frontend/web/` | Vue 控制台与脑图展示（开发时代理到本机后端） |
 | `docs/` | 其他文档（若有） |
 
+### 代码框架（目录树）
+
+
+```text
+xmind_testcase/
+├── README.md
+├── .gitignore
+├── backend/
+│   ├── .env_example                      # 环境变量示例，复制为同目录下 .env 使用
+│   ├── requirements.txt                  # Python 运行时依赖
+│   ├── requirements-dev.txt             # 可选：测试/开发补全依赖
+│   ├── pytest.ini                       # pytest 配置
+│   ├── mcp.json.example                 # MCP 配置样例（运行时应在 cwd 下放 mcp.json）
+│   ├── app/
+│   │   ├── main.py                      # FastAPI 创建、CORS、挂载 `/api/test-case-agent`
+│   │   ├── config.py                    # Pydantic Settings，从环境变量/.env 读取
+│   │   ├── logging_setup.py             # 日志级别（含第三方库降噪）
+│   │   ├── api/
+│   │   │   ├── test_case_agent/          # `/api/test-case-agent/*`（按功能分子包，类 Next 路由目录）
+│   │   │   │   ├── __init__.py           # 汇总子路由、GET `/mcp-diagnostics`、POST `/`（legacy）
+│   │   │   │   ├── common.py             # 鉴权与统一错误响应
+│   │   │   │   ├── plan/routes.py        # POST `/plan`、`/plan/requirement-source` 等
+│   │   │   │   ├── module/routes.py      # POST `/module`
+│   │   │   │   ├── chat/routes.py        # POST `/chat`
+│   │   │   │   └── export_xmind/routes.py # POST `/export-xmind`（URL 用连字符，包名用下划线）
+│   │   │   ├── main.py                  # 其余 API 占位（如有）
+│   │   │   └── config.py
+│   │   ├── schemas/                     # 请求体/响应体、LLM 结构化输出 Pydantic 模型
+│   │   └── services/
+│   │       ├── test_case_agent.py       # 脑图建树、提示词与纯函数（无 I/O）
+│   │       ├── test_case_llm.py         # 各场景结构化 LLM 调用（plan/module/chat…）
+│   │       ├── test_case_mcp_invoke.py  # MCP 取证 + 合并 prompt + 结构化收口
+│   │       ├── xmind_export.py          # 生成 .xmind 二进制
+│   │       ├── mcp_loader.py            # 读取 mcp.json、判断是否启用 MCP
+│   │       ├── chat_model.py             # LangChain ChatModel 工厂
+│   │       └── llm_response_extract.py   # 从模型/Agent 结果抽取文本与 JSON
+│   └── tests/                            # pytest 单测（与 services/schemas 对齐）
+│
+└── frontend/
+    ├── package.json                      # 工作区/聚合（如有）
+    └── web/                              # Vue 3 + Vite 子工程
+        ├── package.json
+        ├── vite.config.ts                # 开发服务器；/api、/health 代理到后端 :8000
+        ├── index.html
+        └── src/
+            ├── main.ts
+            ├── App.vue                   # 主界面：需求输入、脑图工具栏、导出
+            ├── api/                      # fetch 封装 → `/api/test-case-agent/*`
+            ├── components/
+            │   ├── ChatBubblePanel.vue   # 对话区
+            │   └── mindmap/              # simple-mind-map 封装与数据双向绑定
+            ├── composables/              # useTestCaseWorkspace：plan→module→chat 状态机
+            ├── lib/                      # 脑图 normalize/合并、CSV 导出
+            ├── types/                  # 与后端 JSON 对齐的 TS 类型
+            └── data/                     # 需求模板等静态数据
+```
+
+
+
 ## 环境要求
 
 - Python **3.10+**（建议 3.11）
